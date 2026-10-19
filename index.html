@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест: Выбор картинки</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+        h2 { margin-top: 0; }
+        .main-image {
+            max-width: 100%;
+            height: auto;
+            max-height: 400px;
+            margin-bottom: 30px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        .option-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .option-btn img {
+            width: 100%;
+            height: auto;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            display: block;
+        }
+        .option-btn:hover img {
+            border-color: #007bff;
+            transform: scale(1.02);
+        }
+        #loading {
+            font-size: 1.2em;
+            color: #555;
+        }
+        #results {
+            display: none;
+            text-align: left;
+        }
+        #results pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .btn-download {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-download:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Экран загрузки -->
+    <div id="loading">
+        <h2>Загрузка картинок...</h2>
+        <p>Пожалуйста, подождите. Таймер начнется только после загрузки.</p>
+    </div>
+
+    <!-- Экран теста -->
+    <div id="test-area" style="display: none;">
+        <h2>Выберите правильный вариант</h2>
+        <!-- ГЛАВНАЯ КАРТИНКА (ЗАМЕНИТЕ ССЫЛКУ) -->
+        <img id="main-image" class="main-image" src="" alt="Задание">
+        
+        <div class="options-grid" id="options-container">
+            <!-- Кнопки с вариантами будут сгенерированы через JS -->
+        </div>
+    </div>
+
+    <!-- Экран результатов -->
+    <div id="results">
+        <h2>Спасибо за участие!</h2>
+        <p>Ваши результаты сохранены в формате CSV.</p>
+        <pre id="result-text"></pre>
+        <button class="btn-download" onclick="downloadCSV()">Скачать CSV</button>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // НАСТРОЙКИ ТЕСТА (ЗАМЕНИТЕ ЗДЕСЬ ССЫЛКИ НА СВОИ)
+    // ==========================================
+    
+    // Ссылка на главную картинку задания
+    const mainImageSrc = "https://github.com/mitsiplakova-stack/cognitive-test/blob/main/images/question1/вопрос1_ГлавнаяКартинка.png";
+    
+    // Варианты ответа (6 картинок)
+    const options = [
+        { src: "https://github.com/mitsiplakova-stack/cognitive-test/blob/main/images/question1/вопрос1_ответ1.png", correct: false },
+        { src: "https://github.com/mitsiplakova-stack/cognitive-test/blob/main/images/question1/вопрос1_ответ2.png", correct: false  }, 
+        { src: "https://github.com/mitsiplakova-stack/cognitive-test/blob/main/images/question1/вопрос1_ответ3.png", correct: false },
+        { src: "https://github.com/mitsiplakova-stack/cognitive-test/blob/main/images/question1/вопрос1_ответ4.png", correct: true },
+        { src: "https://github.com/mitsiplakova-stack/cognitive-test/blob/main/images/question1/вопрос1_ответ5.png", correct: false },
+        { src: "https://github.com/mitsiplakova-stack/cognitive-test/blob/main/images/question1/вопрос1_ответ6.png", correct: false }
+    ];
+
+    // ==========================================
+    // ЛОГИКА ТЕСТА (НЕ МЕНЯЙТЕ БЕЗ НЕОБХОДИМОСТИ)
+    // ==========================================
+
+    let startTime = 0;
+    let testFinished = false;
+
+    // Функция предзагрузки картинок
+    function preloadImages(urls) {
+        return Promise.all(urls.map(url => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(url);
+                img.onerror = () => reject(new Error(`Ошибка загрузки: ${url}`));
+                img.src = url;
+            });
+        }));
+    }
+
+    // Инициализация теста
+    async function initTest() {
+        const allUrls = [mainImageSrc, ...options.map(o => o.src)];
+
+        try {
+            // Ждем загрузки всех картинок
+            await preloadImages(allUrls);
+            
+            // Скрываем экран загрузки, показываем тест
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('test-area').style.display = 'block';
+
+            // Устанавливаем главную картинку
+            document.getElementById('main-image').src = mainImageSrc;
+
+            // Генерируем кнопки с вариантами
+            const container = document.getElementById('options-container');
+            options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.onclick = () => handleAnswer(index);
+                
+                const img = document.createElement('img');
+                img.src = opt.src;
+                img.alt = `Вариант ${index + 1}`;
+                
+                btn.appendChild(img);
+                container.appendChild(btn);
+            });
+
+            // ВАЖНО: Запускаем таймер ИМЕННО ПОСЛЕ того, как картинки отрисованы на экране
+            // Используем requestAnimationFrame + небольшой таймаут для гарантии отрисовки
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    startTime = Date.now();
+                    console.log("Таймер запущен!");
+                }, 50); 
+            });
+
+        } catch (error) {
+            document.getElementById('loading').innerHTML = `<h2 style="color: red;">Ошибка</h2><p>${error.message}</p>`;
+        }
+    }
+
+    // Обработка ответа
+    function handleAnswer(selectedIndex) {
+        if (testFinished) return; // Защита от двойного клика
+        testFinished = true;
+
+        const endTime = Date.now();
+        const reactionTime = endTime - startTime; // Время в миллисекундах
+        const isCorrect = options[selectedIndex].correct;
+
+        // Формируем результат
+        const resultData = {
+            time_ms: reactionTime,
+            selected_option: selectedIndex + 1,
+            is_correct: isCorrect ? 1 : 0
+        };
+
+        // Показываем результаты
+        document.getElementById('test-area').style.display = 'none';
+        document.getElementById('results').style.display = 'block';
+        
+        document.getElementById('result-text').textContent = 
+            `Время реакции: ${reactionTime} мс\n` +
+            `Выбранный вариант: ${selectedIndex + 1}\n` +
+            `Правильно: ${isCorrect ? 'Да' : 'Нет'}`;
+
+        // Сохраняем в глобальную переменную для скачивания
+        window.finalResult = resultData;
+    }
+
+    // Функция скачивания CSV
+    function downloadCSV() {
+        if (!window.finalResult) return;
+
+        const data = window.finalResult;
+        const csvContent = "time_ms,selected_option,is_correct\n" + 
+                           `${data.time_ms},${data.selected_option},${data.is_correct}`;
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", "test_result.csv");
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Запуск при загрузке страницы
+    window.onload = initTest;
+
+</script>
+
+</body>
+</html>
